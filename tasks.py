@@ -48,22 +48,19 @@ def check_data_file():
 
 
 @app.task(max_retries=5)
-def consumidor_gov_br_update_database():
+def consumidor_gov_br_update_database(sql=False, mongodb=False):
     """
-    This function make a crawler on https://www.consumidor.gov.br/pages/principal/empresas-participantes and save
-    some urls on Mongodb collection named 'consumidor.empresas' to be used by external applications.
+    This function make a crawler at https://www.consumidor.gov.br/pages/principal/empresas-participantes and save
+    some urls on Mongodb and/or Mysql databases to be used by external applications.
     """
 
-    client = MongoClient()
-    db = client.consumidor
-    total_removed = db.empresas.count()
-    db.empresas.remove()
-    table = db.empresas
+    logger = get_task_logger(__name__)
 
-    url = 'https://www.consumidor.gov.br/pages/principal/empresas-participantes'
+    site_url = 'https://www.consumidor.gov.br'
+    path = '/pages/principal/empresas-participantes'
 
     try:
-        html = Crawler().get(url=url, headers=DEFAULT_HEADER)
+        html = Crawler().get(url=site_url+path, headers=DEFAULT_HEADER)
     except Exception as exc:
         try:
             raise consumidor_gov_br_update_database.retry(exc=exc, countdown=10)
@@ -72,11 +69,27 @@ def consumidor_gov_br_update_database():
 
     categories = html.find_all('a', {'class': 'accordion-toggle'})
 
+    data = []
+
     for category in categories:
         links = html.find_all(id=category.get('href')[1:])
         for item in links[0].find_all('a'):
-            data = {'url': item.get('href'), 'name': item.text, 'category': category.text}
-            table.insert_one(data).inserted_id
+            data.append({'url': '{}{}'.format(site_url, item.get('href')), 'name': item.text.rstrip(),
+                         'category': category.text.replace('›', '').rstrip()})
 
-    logger = get_task_logger(__name__)
-    logger.info('Total Removed:{} | Total Added:{}'.format(total_removed, table.count()))
+    if sql:
+        try:
+            sql_file = Crawler().generate_sql(database='consumidor', table='empresas', data=data)
+            print('SQL File exported at {}'.format(sql_file))
+            logger.info('SQL File exported at {}'.format(sql_file))
+        except Exception as exc:
+            logger.error(exc)
+
+    if mongodb:
+        client = MongoClient()
+        db = client.consumidor
+        total_removed = db.empresas.count()
+        db.empresas.remove()
+        table = db.empresas
+        table.insert_many(data)
+        logger.info('Total Removed:{} | Total Added:{}'.format(total_removed, table.count()))

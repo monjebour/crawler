@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
-from bs4 import BeautifulSoup
 import json
 import requests
+
+from bs4 import BeautifulSoup
+from datetime import datetime
 
 
 class Crawler(object):
@@ -64,3 +66,36 @@ class Crawler(object):
         for item in data:
             result = self.post(url, headers=header, data=item, session=True)
             print(BeautifulSoup(result.text, 'html.parser').prettify())
+
+    def generate_sql(self, database, table, data):
+        sql = "UNLOCK TABLES;"
+        sql += "\nCREATE DATABASE IF NOT EXISTS {};".format(database)
+        sql += "\nUSE {};".format(database)
+        sql += "\nDROP TABLE IF EXISTS `{}`;\nCREATE TABLE `{}` (".format(table, table)
+        sql += "`id` int(11) NOT NULL AUTO_INCREMENT, "
+
+        for key, value in data[0].iteritems():
+            sql += "`{}` longtext, ".format(key)
+        sql += "PRIMARY KEY(`id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8;"
+        sql += "\nLOCK TABLES `{}` WRITE;".format(table)
+
+        if len(data) > 1:
+            sql += "\nINSERT INTO `{}` VALUES ".format(table)
+            for i, item in enumerate(data):
+                sql += "({}, ".format(i+1)
+                for ii, (key, value) in enumerate(item.iteritems()):
+                    if ii == len(item)-1:
+                        sql += "'{}'".format(value)
+                    else:
+                        sql += "'{}',".format(value)
+                if i == len(data)-1:
+                    sql += ");"
+                else:
+                    sql += "),"
+
+        sql += "\nUNLOCK TABLES;"
+        file_name = '/tmp/crawler-sql-{}-{}.sql'.format(table, datetime.now().strftime('%d-%m-%Y_%H-%M'))
+        with open(file_name, 'w') as sql_file:
+            sql_file.write(sql)
+            sql_file.close()
+        return file_name
