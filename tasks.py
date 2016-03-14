@@ -86,7 +86,7 @@ def consumidor_gov_br_update_database(sql=False, mongodb=False):
             logger.error(exc)
 
     if mongodb:
-        client = MongoClient()
+        client = MongoClient('mongo0.prodam', 27017)
         db = client.consumidor
         total_removed = db.empresas.count()
         db.empresas.remove()
