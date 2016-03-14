@@ -17,6 +17,7 @@ app.conf.update(
             'task': 'tasks.consumidor_gov_br_update_database',
             'schedule': timedelta(days=1),
             'options': {'queue': 'update'},
+            'args': (False, True)
         },
     },
 )
