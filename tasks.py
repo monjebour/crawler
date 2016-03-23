@@ -79,15 +79,15 @@ def consumidor_gov_br_update_database(sql=False, mongodb=False):
 
     if sql:
         try:
-            sql_file = Crawler().generate_sql(database='consumidor', table='empresas', data=data)
+            sql_file = Crawler().generate_sql(database='procon', table='empresas', data=data)
             print('SQL File exported at {}'.format(sql_file))
             logger.info('SQL File exported at {}'.format(sql_file))
         except Exception as exc:
             logger.error(exc)
 
     if mongodb:
-        client = MongoClient('mongo0.prodam', 27017)
-        db = client.consumidor
+        client = MongoClient('prodam.mongodb', 27017)
+        db = client.procon
         total_removed = db.empresas.count()
         db.empresas.remove()
         table = db.empresas
